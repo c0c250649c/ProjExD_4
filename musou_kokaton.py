@@ -223,6 +223,28 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
+class Gravity(pg.sprite.Sprite):
+    """
+    追加機能2：重力場に関するクラス
+    画面全体に透明度のある黒い矩形を発生させ，範囲内の爆弾／敵機を消滅させる
+    """
+    def __init__(self, life: int):
+        """
+        引数 life：発動時間
+        """
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.image, (0, 0, 0), (0, 0, WIDTH, HEIGHT))
+        self.image.set_alpha(128)
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -253,6 +275,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    gras = pg.sprite.Group() # 追加機能2：重力場グループ
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +286,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            # 追加機能2：bキーで重力場発動（スコア200より大で消費200）
+            if event.type == pg.KEYDOWN and event.key == pg.K_b:
+                if score.value > 200:
+                    gras.add(Gravity(400))
+                    score.value -= 200
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -282,6 +310,14 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
+         # 追加機能2：重力場と衝突した敵機・爆弾を破壊
+        for emy in pg.sprite.groupcollide(emys, gras, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 10
+        for bomb in pg.sprite.groupcollide(bombs, gras, True, False).keys():
+            exps.add(Explosion(bomb, 50))
+            score.value += 1
+
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
@@ -298,6 +334,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        gras.update()  # 追加機能2
+        gras.draw(screen)  # 追加機能2
         score.update(screen)
         pg.display.update()
         tmr += 1
