@@ -152,14 +152,16 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: float = 0):
         """
         ビーム画像Surfaceを生成する
-        引数 bird：ビームを放つこうかとん
+        引数1 bird：ビームを放つこうかとん
+        引数2 angle0：基準角度に加算する回転角度（弾幕用）  ← 追加機能6
         """
         super().__init__()
         self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        # 追加機能6：angle0を基準角度に加算
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -176,6 +178,27 @@ class Beam(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
+
+
+class NeoBeam:
+    """
+    追加機能6：弾幕に関するクラス
+    一度に複数方向のビームを発射する
+    """
+    def __init__(self, bird: Bird, num: int):
+        """
+        引数1 bird：ビームを放つこうかとん
+        引数2 num：ビーム数
+        """
+        self.bird = bird
+        self.num = num
+
+    def gen_beams(self) -> list[Beam]:
+        """
+        -50°〜+50°の範囲でnum個のBeamインスタンスを生成し，リストで返す
+        """
+        step = 100 // (self.num - 1) if self.num > 1 else 100
+        return [Beam(self.bird, angle) for angle in range(-50, 51, step)]
 
 
 class Explosion(pg.sprite.Sprite):
@@ -256,6 +279,14 @@ class Shield(pg.sprite.Sprite):
         # こうかとんの中心からこうかとん1体分ずらした位置に配置
         self.rect.centerx = bird.rect.centerx + bw * vx
         self.rect.centery = bird.rect.centery + bh * vy
+        self.life = life
+
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 class Gravity(pg.sprite.Sprite):
     """
     追加機能2：重力場に関するクラス
@@ -366,7 +397,11 @@ def main():
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+                # 追加機能6：左Shift＋スペースで弾幕（5方向ビーム）
+                if key_lst[pg.K_LSHIFT]:
+                    beams.add(*NeoBeam(bird, 5).gen_beams())
+                else:
+                    beams.add(Beam(bird))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:  # 追加機能3
                 EMP(emys, bombs, screen)
