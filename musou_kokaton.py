@@ -72,6 +72,9 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        # 追加機能4：無敵状態用の属性
+        self.state = "normal"
+        self.hyper_life = -1
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -99,6 +102,13 @@ class Bird(pg.sprite.Sprite):
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
+        # 追加機能4：無敵状態の処理
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.imgs[self.dire])
+            self.hyper_life -= 1
+            if self.hyper_life < 0:
+                self.state = "normal"
+                self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
 
 
@@ -122,7 +132,7 @@ class Bomb(pg.sprite.Sprite):
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
         # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
-        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
@@ -200,7 +210,7 @@ class Enemy(pg.sprite.Sprite):
     敵機に関するクラス
     """
     imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
-    
+
     def __init__(self):
         super().__init__()
         self.image = pg.transform.rotozoom(random.choice(__class__.imgs), 0, 0.8)
@@ -263,6 +273,12 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            # 追加機能4：右Shiftキーで無敵状態発動（スコア100より大で消費100）
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
+                if score.value > 100 and bird.state == "normal":
+                    bird.state = "hyper"
+                    bird.hyper_life = 500
+                    score.value -= 100
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -283,6 +299,11 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            # 追加機能4：無敵状態なら爆弾を爆発させてスコア+1
+            if bird.state == "hyper":
+                exps.add(Explosion(bomb, 50))
+                score.value += 1
+                continue
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
             pg.display.update()
