@@ -223,6 +223,32 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
+class Life:
+    """
+    残機数（ライフ）を管理し，画面右下にハートで表示するクラス
+    """
+    def __init__(self, num: int):
+        """
+        引数 num：初期残機数
+        """
+        self.num = num
+        self.image = pg.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        points = [
+            (16 * math.sin(t / 100) ** 3 + 20,
+             -(13 * math.cos(t / 100) - 5 * math.cos(2 * t / 100)
+               - 2 * math.cos(3 * t / 100) - math.cos(4 * t / 100)) + 20)
+            for t in range(0, 628)
+        ]
+        pg.draw.polygon(self.image, (255, 0, 0), points)
+
+    def update(self, screen: pg.Surface):
+        for i in range(self.num):
+            rect = self.image.get_rect()
+            rect.center = (WIDTH - 50 - (self.num - 1 - i) * 40, HEIGHT - 50)
+            screen.blit(self.image, rect)
+
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -247,6 +273,7 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
+    life = Life(3) #追加機能1：残機数(初期値3)
 
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -283,11 +310,15 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            # 追加機能１：残機数を1減らす
+            life.num -= 1
+            if life.num <= 0: # ゲームオーバー時に，こうかとん画像を切り替え，1秒間表示させる
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                life.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -299,6 +330,7 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        life.update(screen) #追加機能1：残機数の表示
         pg.display.update()
         tmr += 1
         clock.tick(50)
