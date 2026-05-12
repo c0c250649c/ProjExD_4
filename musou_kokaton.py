@@ -136,6 +136,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active"  # 追加機能3
 
     def update(self):
         """
@@ -281,6 +282,28 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class EMP:  # 追加機能3
+    """
+    EMPに関するクラス
+    """
+    def __init__(self, emys: pg.sprite.Group, bombs: pg.sprite.Group, screen: pg.Surface):
+        for emy in emys:
+            emy.interval = math.inf 
+            emy.image = pg.transform.laplacian(emy.image)
+            emy.image.set_colorkey((0, 0, 0)) 
+
+        for bomb in bombs:
+            bomb.speed /= 2
+            bomb.state = "inactive" 
+            
+        overlay = pg.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((255, 255, 0))
+        screen.blit(overlay, (0, 0))
+        pg.display.update()
+        time.sleep(0.05)
+
+
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -304,20 +327,24 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
-<<<<<<< HEAD
+
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value >= 20:  # 追加機能3
+                EMP(emys, bombs, screen)
+                score.value -= 20
+    
+
             # 追加機能5：sキーで防御壁発動（スコア50より大・1壁のみ・消費50）
             if event.type == pg.KEYDOWN and event.key == pg.K_s:
                 if score.value > 50 and len(shields) == 0:
                     shields.add(Shield(bird, 400))
                     score.value -= 50
-=======
+
             # 追加機能4：右Shiftキーで無敵状態発動（スコア100より大で消費100）
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
                 if score.value > 100 and bird.state == "normal":
                     bird.state = "hyper"
                     bird.hyper_life = 500
                     score.value -= 100
->>>>>>> C0C25016/feature4
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -343,6 +370,14 @@ def main():
             score.value += 1
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            if bomb.state == "active":  # 爆弾がアクティブ状態のときのみダメージ
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
+            else:   # 追加機能3
+                bomb.kill()
             # 追加機能4：無敵状態なら爆弾を爆発させてスコア+1
             if bird.state == "hyper":
                 exps.add(Explosion(bomb, 50))
