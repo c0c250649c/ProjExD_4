@@ -262,6 +262,30 @@ class Shield(pg.sprite.Sprite):
         self.life -= 1
         if self.life < 0:
             self.kill()
+class Life:
+    """
+    残機数（ライフ）を管理し，画面右下にハートで表示するクラス
+    """
+    def __init__(self, num: int):
+        """
+        引数 num：初期残機数
+        """
+        self.num = num
+        self.image = pg.Surface((40, 40))
+        self.image.set_colorkey((0, 0, 0))
+        points = [
+            (16 * math.sin(t / 100) ** 3 + 20,
+             -(13 * math.cos(t / 100) - 5 * math.cos(2 * t / 100)
+               - 2 * math.cos(3 * t / 100) - math.cos(4 * t / 100)) + 20)
+            for t in range(0, 628)
+        ]
+        pg.draw.polygon(self.image, (255, 0, 0), points)
+
+    def update(self, screen: pg.Surface):
+        for i in range(self.num):
+            rect = self.image.get_rect()
+            rect.center = (WIDTH - 50 - (self.num - 1 - i) * 40, HEIGHT - 50)
+            screen.blit(self.image, rect)
 
 
 class Score:
@@ -310,6 +334,7 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
+    life = Life(3) #追加機能1：残機数(初期値3)
 
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -371,24 +396,22 @@ def main():
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             if bomb.state == "active":  # 爆弾がアクティブ状態のときのみダメージ
+                if bird.state == "hyper":  # 追加機能4：無敵状態なら爆弾を爆発させてスコア+1
+                    exps.add(Explosion(bomb, 50))
+                    score.value += 1
+                    continue
+
+                life.num -= 1  # 追加機能1：残機数を1減らす
                 bird.change_img(8, screen)  # こうかとん悲しみエフェクト
                 score.update(screen)
+                life.update(screen)
                 pg.display.update()
                 time.sleep(2)
-                return
+
+                if life.num <= 0:  # ゲームオーバー時に，こうかとん画像を切り替え，1秒間表示させる
+                    return
             else:   # 追加機能3
                 bomb.kill()
-            # 追加機能4：無敵状態なら爆弾を爆発させてスコア+1
-            if bird.state == "hyper":
-                exps.add(Explosion(bomb, 50))
-                score.value += 1
-                continue
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
-
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
@@ -401,6 +424,7 @@ def main():
         shields.update()  # 追加機能5
         shields.draw(screen)  # 追加機能5
         score.update(screen)
+        life.update(screen) #追加機能1：残機数の表示
         pg.display.update()
         tmr += 1
         clock.tick(50)
